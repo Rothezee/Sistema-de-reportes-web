@@ -1,3 +1,12 @@
+
+
+// esta vercion esta en prueba en la maquina gold digger
+/*Vercion Octubre 2024 
+-Se agregaron funciones de wifi y web.
+-Tiene una funcion en segundo plano para enviar un pulso a la base de datos.
+-Envia datos a la base que se visualizan en la web.
+-Inclucion de bibliotecas como Arduino.h, HTTPClient, ArduinoJson, Ticker, WiFi, Wire.*/
+
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
 #include <Arduino.h>
@@ -12,8 +21,8 @@ int lcdRows = 2;
 LiquidCrystal_I2C lcd(0x27, lcdColumns, lcdRows);
 
 const char* device_id = "ESP32_001";
-const char* ssid = "HUAWEI-2.4G-Dqc5";
-const char* password = "46332714";
+const char* ssid = "Miguel2";
+const char* password = "12345678";
 const char* serverAddress = "https://maquinasbonus.com/esp32_project/insert_data.php";
 const char* serverAddress1 = "https://maquinasbonus.com/esp32_project/insert_heartbeat.php";
 
@@ -30,7 +39,7 @@ const char* serverAddress1 = "https://maquinasbonus.com/esp32_project/insert_hea
 #define DATO12 27
 #define ECOIN 26
 
-int X = 0;
+unsigned long X = 0;
  int RDISTANCIA = 0;//referencia de distancia
  int TIEMPO = 0;
  int TIEMPOAUX = 0;//variable auxiliar sistema de tiempo de la pinza
@@ -66,7 +75,7 @@ int GRUADISPLAY = 0;
 int BARRERAAUX2 = 0;
 char DAT;
 int TIEMPO7 = 0;
-long TIEMPO8 = 0;
+unsigned long TIEMPO8 = 0;
 //char MENSAJE = "" ;
 int TIEMPO9 = 0;
 int AUXSIM = 0;
@@ -80,6 +89,7 @@ unsigned long lastUpdate = 0; // Para controlar los incrementos de variables
 unsigned long lastSendTime = 0; // Para controlar el envío de datos
 const long updateInterval = 1000; // 1 segundo para actualizaciones
 const long sendInterval = 30000; // 30 segundos para envío de datos
+const long barrera = 3000; //espera para la barrera
 
 // Definir el ticker para ejecutar la función de envío del pulso cada 60 segundos
 Ticker tickerPulso;
@@ -180,7 +190,7 @@ void setup() {
     Serial.begin(115200);
     EEPROM.begin(256);
 
-    analogWriteFrequency(SPINZA, 100);
+    analogWriteFrequency( 100);
 
     // Inicializar LCD
     lcd.init();
@@ -201,7 +211,7 @@ void setup() {
     pinMode(ECOIN, INPUT_PULLUP);
     
     // Leer variables de la EEPROM
-    EEPROM.get(45, INICIO);
+    EEPROM.get(35, INICIO);
     if (INICIO != 35) {
         EEPROM.put(1, 0);
         EEPROM.put(5, 0);
@@ -287,6 +297,7 @@ void leecoin() {
     }
     if (AUXCOIN == 0 && AUX2COIN == HIGH) AUX2COIN = LOW;
 }
+
 void leerbarrera() {
     if (BARRERAAUX2 == 1) {
         // Leer distancia con sensor ultrasónico
@@ -450,7 +461,7 @@ void ajustebarrera() {
 void loop() {
 
   unsigned int dato1, dato2, dato3;
-  int dato4;
+  int dato4, auxtbarrera = 0;
 
     graficar(); // Actualiza el LCD
 
@@ -464,22 +475,22 @@ void loop() {
             AUX = 0;
         }
 
-        if (TIEMPO7 < 20000) {
+        if (TIEMPO7 < 100000) {
             TIEMPO7++;
-            delay(1);
         }
 
         // Leer monedas
         leecoin();
 
-        // Verificar si las variables han cambiado para guardar los valores
-        if (PJFIJO != prevPJFIJO || PPFIJO != prevPPFIJO || BANK != prevBANK) {
-            dato1 = PJFIJO; dato2 = PJFIJO; dato3 = PPFIJO; dato4 = BANK;
-            sendDataToPHP(device_id, dato1, dato2, dato3, dato4);
-            prevPJFIJO = PJFIJO;
-            prevPPFIJO = PPFIJO;
-            prevBANK = BANK;
+          if (PJFIJO != prevPJFIJO || PPFIJO != prevPPFIJO || BANK != prevBANK) {
+              dato1 = PJFIJO; dato2 = PJFIJO; dato3 = PPFIJO; dato4 = BANK;
+              sendDataToPHP(device_id, dato1, dato2, dato3, dato4);
+              prevPJFIJO = PJFIJO;
+              prevPPFIJO = PPFIJO;
+              prevBANK = BANK;
         }
+        
+
 
         // Control de la rutina de programación
         if (digitalRead(DATO3) == LOW) {
@@ -545,36 +556,42 @@ if (PAGO <= BANK && Z <= 3) {
     // Cerrar la pinza usando PWM
     analogWrite(SPINZA, 250);  // Establecer el duty cycle (250 de 255 para cerrar la pinza)
     delay(2000);  // Esperar 2 segundos
+   auxtbarrera = HIGH;
+    // Control de las aperturas temporales en la señal de la pinza mientras la pinza vuelve a home
 
-    // Control de las aperturas temporales en la señal de la pinza
-    while (digitalRead(EPINZA) == HIGH || X < 100) {
-        if (digitalRead(EPINZA) == HIGH) {
+    while (auxtbarrera == HIGH) {
+       
+        
+        while(X < 3000){ // comienza retardo de lectura de barrera
+             if (digitalRead(EPINZA) == HIGH) {
             X = 0;
-        }
-        if (X == 15) {
+          }
+          if (X == 150) {
             analogWrite(SPINZA, 0);  // Apagar la pinza (duty cycle = 0)
-        }
-        if (digitalRead(EPINZA) == LOW) {
-            X++;  // Incrementa X para cerrar progresivamente
-        }
-
+          }
+          if (digitalRead(EPINZA) == LOW) {
+            X++;delay (1);  // Incrementa X mientras dure el while
+          }
+      
         // Leer la barrera periódicamente (si existe)
-        if (TIEMPO8 < 550) {
+        if (TIEMPO8 <= 20) {
             TIEMPO8++;
-            if (TIEMPO8 == 549) {
+           }
+            if (TIEMPO8 >= 19) {
                 TIEMPO8 = 0;
-                if (BARRERAAUX == LOW) {
+                  if (BARRERAAUX == LOW) {
                     leerbarrera();  // Lógica para la barrera
                 }
             }
+        if (X == 2998){auxtbarrera = LOW;    //lcd.clear();delay(2000);
         }
-
         // Si la barrera está activa, salir del loop
-        if (BARRERA == HIGH) {
-            break;
+        if (BARRERAAUX == HIGH) {
+            auxtbarrera = LOW;break;
         }
+        } //esta llave es el while del retardo de lectura barrera  
     }
-} else {
+    }else {
     // Bloque de cierre de la pinza cuando no hay pago
     analogWrite(SPINZA, 255);  // Cerrar la pinza completamente (duty cycle máximo)
     delay(TIEMPO5);  // Esperar según TIEMPO5
@@ -607,34 +624,45 @@ if (PAGO <= BANK && Z <= 3) {
     delay(100);
     analogWrite(SPINZA, FUERZA * 1.3);  // Aumentar la fuerza nuevamente
 
-    // Control de las aperturas temporales en la señal de la pinza
-    while (digitalRead(EPINZA) == HIGH || X < 100) {
-        if (digitalRead(EPINZA) == HIGH) {
-            X = 0;
-        }
-        if (X == 15) {
-            analogWrite(SPINZA, 0);  // Apagar la pinza
-        }
-        if (digitalRead(EPINZA) == LOW) {
-            X++;
-        }
+  auxtbarrera = HIGH;
 
-        // Leer la barrera periódicamente
-        if (TIEMPO8 < 550) {
+
+    // Control de las aperturas temporales en la señal de la pinza mientras la pinza vuelve a home
+   
+ while (auxtbarrera == HIGH) {
+       
+        
+        while(X < 3000){ // comienza retardo de lectura de barrera
+             if (digitalRead(EPINZA) == HIGH) {
+            X = 0;
+          }
+          if (X == 150) {
+            analogWrite(SPINZA, 0);  // Apagar la pinza (duty cycle = 0)
+          }
+          if (digitalRead(EPINZA) == LOW) {
+            X++; delay(1) ;// Incrementa X mientras dure el while
+          }
+      
+        // Leer la barrera periódicamente (si existe)
+        if (TIEMPO8 <= 20) {
             TIEMPO8++;
-            if (TIEMPO8 == 549) {
+           }
+            if (TIEMPO8 >= 19) {
                 TIEMPO8 = 0;
-                if (BARRERAAUX == LOW) {
+                  if (BARRERAAUX == LOW) {
                     leerbarrera();  // Lógica para la barrera
                 }
             }
+        if (X == 2998){auxtbarrera = LOW;     //lcd.clear();delay (2000);
         }
-
-        if (BARRERA == HIGH) {
-            break;
+        // Si la barrera está activa, salir del loop
+        if (BARRERAAUX == HIGH) {
+            auxtbarrera = LOW;break;
         }
+        } //esta llave es el while del retardo de lectura barrera  
     }
-}
+
+}// esta llave cierra el bloque de no pago
 
 // Apagar la pinza después de terminar
 analogWrite(SPINZA, 0);  // Apagar la pinza (duty cycle 0)
