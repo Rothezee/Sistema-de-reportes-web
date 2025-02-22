@@ -33,7 +33,7 @@ int TIEMPO = 0;
 unsigned int CUENTA = 0;
 int TIEMPO2 = 0;
 #define ECOIN 35   // lee los pulsos del billetero
-#define SALIDA 17  // se usa para dar coin a la maquina
+#define SALIDA 13  // se usa para dar coin a la maquina
 #define AC 16 //apertura y cierre 
 #define BOTON_ENTREGA 26 // Pin del botón de entrega de promoción
 #define TEST 4
@@ -65,11 +65,12 @@ int PREMIO = 0;
 int TIEMPO8 = 0;
 int BARRERAX = 0;
 unsigned int Rcuenta = 0, Rsal = 0;
-
+// Variables para los contadores de promociones
+unsigned int PROMO1_COUNT = 0, PROMO2_COUNT = 0, PROMO3_COUNT = 0;
 const char* ssid = "HUAWEI-2.4G-Dqc5";
 const char* password = "46332714";
-const char* serverAddress1 = "https://www.maquinasbonus.com/esp32_project/insert_heartbeat.php";
-const char* serverAddress2 = "https://www.maquinasbonus.com/esp32_project/insert_close.php";
+const char* serverAddress1 = "http://192.168.100.5/esp32_project/insert_heartbeat.php";
+const char* serverAddress2 = "http://192.168.100.5/esp32_project/esp32_project/insert_close.php";
 
 void enviarPulso() {
   // Comprobar si el WiFi está conectado
@@ -162,7 +163,7 @@ void sendDataToPHP(info i, const char* serverAddress) {
 }
 
 void setup() {
-  i.device_id = "Ticket_1";
+  i.device_id = "EXPENDEDORA_1";
   Serial.begin(115200);
   preferences.begin("storage", false);
 
@@ -179,7 +180,7 @@ void setup() {
   pinMode(TEST1, INPUT);    //botones de programacion
   pinMode(TEST2, INPUT);
   pinMode(TEST, INPUT);
-  pinMode(ENTHOPER, INPUT);   //retorno sensor hopper
+  pinMode(ENTHOPER, INPUT_PULLUP);   //retorno sensor hopper
   pinMode(SALHOPER, OUTPUT);  //habilitacion hopper
   pinMode(BOTON, INPUT);      //boton cambio manual
   pinMode(SAL1, OUTPUT);      //bloqueo del billetero
@@ -254,9 +255,9 @@ void leerbarrera() {
 }
 
 
-void configurarPromo(const char* nombrePromo, unsigned int &valorPromo, int paso, int min, int max, const char* key, unsigned int &fichasPromo) {
+void configurarPromo(const char* nombrePromo, unsigned int &valorPromo, int paso, int min, int max, const char* key, unsigned int &fichasPromo, unsigned int &promoCount) {
     while (digitalRead(TEST) == HIGH) { 
-        delay(100); // Mantener tiempo de respuesta
+        delay(100);
         lcd.clear();
         lcd.setCursor(0, 0);
         lcd.print(nombrePromo);
@@ -277,13 +278,13 @@ void configurarPromo(const char* nombrePromo, unsigned int &valorPromo, int paso
             lcd.print(valorPromo);
             delay(200);
         }
-        // Si se presiona el botón de entrega, actualizar valores
         if (digitalRead(BOTON_ENTREGA) == LOW) {
-            CUENTA -= valorPromo;  // Restar el precio de la promoción
-            Rcuenta += valorPromo; // Registrar en el cierre diario
-            FICHAS += fichasPromo; // Agregar fichas entregadas
-            Rsal += fichasPromo;   // Registrar fichas en el cierre diario
+            CUENTA -= valorPromo;
+            Rcuenta += valorPromo;
+            FICHAS += fichasPromo;
+            Rsal += fichasPromo;
             SFIJO += fichasPromo;
+            promoCount++;  // Incrementar contador de la promoción
             lcd.clear();
             lcd.setCursor(0, 0);
             lcd.print("Entrega Exitosa!");
@@ -293,6 +294,7 @@ void configurarPromo(const char* nombrePromo, unsigned int &valorPromo, int paso
     while (digitalRead(TEST) == LOW) { delay(50); }  
     preferences.putInt(key, valorPromo);
 }
+
 
 void programar() {
     lcd.clear();
@@ -326,12 +328,15 @@ void programar() {
     lcd.print(PREMIO);
     delay(500);
 
+   while (digitalRead(TEST) == HIGH) { delay(20); }
+   
     lcd.clear();
     lcd.setCursor(0, 0);
     lcd.print("BORRA CONTADORES");
     lcd.setCursor(0, 1);
     lcd.print("NO");
     delay(500);
+    
 
     while (digitalRead(TEST) == HIGH) {
         if (digitalRead(TEST1) == LOW) {
@@ -362,23 +367,20 @@ void programar() {
 
     delay(500);
 
-    // Configuración de promociones con el botón de entrega
-    configurarPromo("Promo1 P$", VALOR1, 100, 0, 10000, "VALOR1", FICHAS1);
+    while (digitalRead(TEST) == HIGH) { delay(20); }
+    configurarPromo("Promo1 P$", VALOR1, 100, 0, 10000, "VALOR1", FICHAS1, PROMO1_COUNT);
+    delay(300);
+    configurarPromo("Promo1 Fichas", FICHAS1, 1, 1, 100, "FICHAS1", FICHAS1, PROMO1_COUNT);
     delay(300);
 
-    configurarPromo("Promo1 Fichas", FICHAS1, 1, 1, 100, "FICHAS1", FICHAS1);
+    configurarPromo("Promo2 P$", VALOR2, 500, 0, 10000, "VALOR2", FICHAS2, PROMO2_COUNT);
     delay(300);
-
-    configurarPromo("Promo2 P$", VALOR2, 500, 0, 10000, "VALOR2", FICHAS2);
-    delay(300);
-
-    configurarPromo("Promo2 Fichas", FICHAS2, 1, 1, 100, "FICHAS2", FICHAS2);
+    configurarPromo("Promo2 Fichas", FICHAS2, 1, 1, 100, "FICHAS2", FICHAS2, PROMO2_COUNT);
     delay(300);
     
-    configurarPromo("Promo3 P$", VALOR3, 1000, 0, 10000, "VALOR3", FICHAS3);
+    configurarPromo("Promo3 P$", VALOR3, 1000, 0, 10000, "VALOR3", FICHAS3, PROMO3_COUNT);
     delay(300);
-
-    configurarPromo("Promo3 Fichas", FICHAS3, 1, 1, 100, "FICHAS3", FICHAS3);
+    configurarPromo("Promo3 Fichas", FICHAS3, 1, 1, 100, "FICHAS3", FICHAS3, PROMO3_COUNT);
     delay(300);
 
     grabareprom();
@@ -456,10 +458,17 @@ void convertirFichas(int valorMin, int valorMax, int fichas) {
 void enviarCierreDiario() {
   i.dato2 = Rcuenta;
   i.dato5 = Rsal;
-  sendDataToPHP(i, "https://www.maquinasbonus.com/esp32_project/insert_data.php");//FALTA CAMBIAR LA DIRECCION A LA QUE SON ENVIADOS ACA
+  i.dato3 = PROMO1_COUNT;
+  i.dato4 = PROMO2_COUNT;
+  i.dato1 = PROMO3_COUNT;
+
+  sendDataToPHP(i, "http://localhost/esp32_project/insert_data.php");
 
   Rcuenta = 0;
   Rsal = 0;
+  PROMO1_COUNT = 0;
+  PROMO2_COUNT = 0;
+  PROMO3_COUNT = 0;
 }
 
 void loop() {
@@ -478,7 +487,7 @@ estadoAC_anterior = estadoAC;
   if(EFIJO != prevEFIJO || SFIJO != prevSFIJO){
     i.dato2 = EFIJO;
     i.dato5 = SFIJO;
-    sendDataToPHP(i, "https://www.maquinasbonus.com/esp32_project/insert_data.php");
+    sendDataToPHP(i, "http://192.168.100.5/esp32_project/insert_data.php");
     prevEFIJO = EFIJO;
     prevSFIJO = SFIJO;
   }
