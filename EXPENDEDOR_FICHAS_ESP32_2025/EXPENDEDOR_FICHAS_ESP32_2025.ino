@@ -69,8 +69,8 @@ unsigned int Rcuenta = 0, Rsal = 0;
 unsigned int PROMO1_COUNT = 0, PROMO2_COUNT = 0, PROMO3_COUNT = 0;
 const char* ssid = "HUAWEI-2.4G-Dqc5";
 const char* password = "46332714";
-const char* serverAddress1 = "http://192.168.100.5/esp32_project/insert_heartbeat.php";
-const char* serverAddress2 = "http://192.168.100.5/esp32_project/esp32_project/insert_close.php";
+const char* serverAddress1 = "https://www.maquinasbonus.com/esp32_project/insert_heartbeat.php";
+const char* serverAddress2 = "https://www.maquinasbonus.com/esp32_project/insert_close_expendedora.php";
 
 void enviarPulso() {
   // Comprobar si el WiFi está conectado
@@ -118,7 +118,7 @@ void connectToWiFi() {
     delay(1000);
     Serial.print(".");
     retryCount++;
-  }
+  } 
 
   if (WiFi.status() == WL_CONNECTED) {
     Serial.println("\nWiFi conectado");
@@ -142,6 +142,7 @@ void sendDataToPHP(info i, const char* serverAddress) {
     doc["dato2"] = i.dato2;
     doc["dato3"] = i.dato3;
     doc["dato4"] = i.dato4;
+    doc["dato4"] = i.dato5;
 
     // Serializar JSON y enviarlo
     String postData;
@@ -285,6 +286,7 @@ void configurarPromo(const char* nombrePromo, unsigned int &valorPromo, int paso
             Rsal += fichasPromo;
             SFIJO += fichasPromo;
             promoCount++;  // Incrementar contador de la promoción
+            grabareprom();
             lcd.clear();
             lcd.setCursor(0, 0);
             lcd.print("Entrega Exitosa!");
@@ -382,7 +384,7 @@ void programar() {
     delay(300);
     configurarPromo("Promo3 Fichas", FICHAS3, 1, 1, 100, "FICHAS3", FICHAS3, PROMO3_COUNT);
     delay(300);
-
+    
     grabareprom();
     graficar1();
     delay(1000);
@@ -462,7 +464,7 @@ void enviarCierreDiario() {
   i.dato4 = PROMO2_COUNT;
   i.dato1 = PROMO3_COUNT;
 
-  sendDataToPHP(i, "http://localhost/esp32_project/insert_data.php");
+  sendDataToPHP(i, serverAddress2);
 
   Rcuenta = 0;
   Rsal = 0;
@@ -486,8 +488,8 @@ estadoAC_anterior = estadoAC;
 
   if(EFIJO != prevEFIJO || SFIJO != prevSFIJO){
     i.dato2 = EFIJO;
-    i.dato5 = SFIJO;
-    sendDataToPHP(i, "http://192.168.100.5/esp32_project/insert_data.php");
+    i.dato1 = SFIJO;
+    sendDataToPHP(i, "https://www.maquinasbonus.com/esp32_project/insert_data.php");
     prevEFIJO = EFIJO;
     prevSFIJO = SFIJO;
   }
